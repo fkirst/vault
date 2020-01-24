@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-hclog"
 )
@@ -83,7 +85,7 @@ type Patch struct {
 	Value     interface{}
 }
 
-func New(logger hclog.Logger) (*Client, error) {
+func New(logger hclog.Logger, stopCh <-chan struct{}) (*Client, error) {
 	config, err := inClusterConfig()
 	if err != nil {
 		return nil, err
@@ -91,12 +93,14 @@ func New(logger hclog.Logger) (*Client, error) {
 	return &Client{
 		logger: logger,
 		config: config,
+		stopCh: stopCh,
 	}, nil
 }
 
 type Client struct {
 	logger hclog.Logger
 	config *Config
+	stopCh <-chan struct{}
 }
 
 // GetPod merely verifies a pod's existence, returning an
@@ -179,7 +183,16 @@ func (c *Client) do(req *http.Request, ptrToReturnObj interface{}) error {
 	}
 
 	var lastErr error
+	b := backoff.NewExponentialBackOff()
 	for i := 0; i < maxRetries; i++ {
+		if i != 0 {
+			select {
+			case <-c.stopCh:
+				return nil
+			case <-time.NewTimer(b.NextBackOff()).C:
+				// Continue to the request.
+			}
+		}
 		shouldRetry, err := c.attemptRequest(client, req, ptrToReturnObj)
 		if !shouldRetry {
 			// The error may be nil or populated depending on whether the
@@ -233,6 +246,10 @@ func (c *Client) attemptRequest(client *http.Client, req *http.Request, ptrToRet
 		return true, fmt.Errorf("bad status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
 	case 404:
 		return false, ErrNotFound
+	case 500, 502, 503, 504:
+		// Could be transient.
+		// Continue to try again, but return the error too in case the caller would rather read it out.
+		return true, fmt.Errorf("bad status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
 	default:
 		return false, fmt.Errorf("unexpected status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
 	}
