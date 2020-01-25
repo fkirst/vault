@@ -248,9 +248,13 @@ func (c *Client) attemptRequest(client *http.Client, req *http.Request, ptrToRet
 		return false, ErrNotFound
 	case 500, 502, 503, 504:
 		// Could be transient.
+		return true, fmt.Errorf("unexpected status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
+	default:
+		// Unexpected.
 		return false, fmt.Errorf("unexpected status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
 	}
 
+	// We only arrive here with success.
 	// If we're not supposed to read out the body, we have nothing further
 	// to do here.
 	if ptrToReturnObj == nil {
