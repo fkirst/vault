@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/vault/serviceregistration/kubernetes/client"
 )
 
+// TODO this is almost ready to PR. Test it IRL in minikube, and do any last making it prettier.
+
 const (
 	// Labels are placed in a pod's metadata.
 	labelVaultVersion = "vault-version"

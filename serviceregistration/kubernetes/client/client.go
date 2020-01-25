@@ -26,65 +26,6 @@ var (
 	ErrNotInCluster   = errors.New("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 )
 
-type Pod struct {
-	Metadata *Metadata `json:"metadata,omitempty"`
-}
-
-type Metadata struct {
-	Name string `json:"name,omitempty"`
-
-	// This map will be nil if no "labels" key was provided.
-	// It will be populated but have a length of zero if the
-	// key was provided, but no values.
-	Labels map[string]string `json:"labels,omitempty"`
-}
-
-type PatchOperation int
-
-const (
-	// When adding support for more PatchOperations in the future,
-	// DO NOT alphebetize them because it will change the underlying
-	// int representing a user's intent. If that's stored anywhere,
-	// it will cause storage reads to map to the incorrect operation.
-	Unset PatchOperation = iota
-	Add
-	Replace
-)
-
-func Parse(s string) PatchOperation {
-	switch s {
-	case "add":
-		return Add
-	case "replace":
-		return Replace
-	default:
-		return Unset
-	}
-}
-
-func (p PatchOperation) String() string {
-	switch p {
-	case Unset:
-		// This is an invalid choice, and will be shown on a patch
-		// where the PatchOperation is unset. That's because ints
-		// default to 0, and Unset corresponds to 0.
-		return "unset"
-	case Add:
-		return "add"
-	case Replace:
-		return "replace"
-	default:
-		// Should never arrive here.
-		return ""
-	}
-}
-
-type Patch struct {
-	Operation PatchOperation
-	Path      string
-	Value     interface{}
-}
-
 func New(logger hclog.Logger, stopCh <-chan struct{}) (*Client, error) {
 	config, err := inClusterConfig()
 	if err != nil {
@@ -263,6 +204,65 @@ func (c *Client) attemptRequest(client *http.Client, req *http.Request, ptrToRet
 
 	// Attempt to read out the body into the given return object.
 	return false, json.NewDecoder(resp.Body).Decode(ptrToReturnObj)
+}
+
+type Pod struct {
+	Metadata *Metadata `json:"metadata,omitempty"`
+}
+
+type Metadata struct {
+	Name string `json:"name,omitempty"`
+
+	// This map will be nil if no "labels" key was provided.
+	// It will be populated but have a length of zero if the
+	// key was provided, but no values.
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+type PatchOperation int
+
+const (
+	// When adding support for more PatchOperations in the future,
+	// DO NOT alphebetize them because it will change the underlying
+	// int representing a user's intent. If that's stored anywhere,
+	// it will cause storage reads to map to the incorrect operation.
+	Unset PatchOperation = iota
+	Add
+	Replace
+)
+
+func Parse(s string) PatchOperation {
+	switch s {
+	case "add":
+		return Add
+	case "replace":
+		return Replace
+	default:
+		return Unset
+	}
+}
+
+func (p PatchOperation) String() string {
+	switch p {
+	case Unset:
+		// This is an invalid choice, and will be shown on a patch
+		// where the PatchOperation is unset. That's because ints
+		// default to 0, and Unset corresponds to 0.
+		return "unset"
+	case Add:
+		return "add"
+	case Replace:
+		return "replace"
+	default:
+		// Should never arrive here.
+		return ""
+	}
+}
+
+type Patch struct {
+	Operation PatchOperation
+	Path      string
+	Value     interface{}
 }
 
 // sanitizedDebuggingInfo converts an http response to a string without
