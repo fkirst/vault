@@ -18,36 +18,6 @@ const (
 	TestPodname   = "shell-demo"
 )
 
-type TestState struct {
-	m *sync.Map
-}
-
-func (s *TestState) NumPatches() int {
-	l := 0
-	f := func(key, value interface{}) bool {
-		l++
-		return true
-	}
-	s.m.Range(f)
-	return l
-}
-
-func (s *TestState) Get(key string) *Patch {
-	v, ok := s.m.Load(key)
-	if !ok {
-		return nil
-	}
-	patch, ok := v.(*Patch)
-	if !ok {
-		return nil
-	}
-	return patch
-}
-
-func (s *TestState) store(k string, p *Patch) {
-	s.m.Store(k, p)
-}
-
 // TestServer returns an http test server that can be used to test
 // Kubernetes client code. It returns its current patches as a map
 // so the caller can check current state. Calling the closeFunc
@@ -168,6 +138,36 @@ func TestServer(t *testing.T) (testState *TestState, closeFunc func()) {
 		t.Fatal(err)
 	}
 	return testState, closeFunc
+}
+
+type TestState struct {
+	m *sync.Map
+}
+
+func (s *TestState) NumPatches() int {
+	l := 0
+	f := func(key, value interface{}) bool {
+		l++
+		return true
+	}
+	s.m.Range(f)
+	return l
+}
+
+func (s *TestState) Get(key string) *Patch {
+	v, ok := s.m.Load(key)
+	if !ok {
+		return nil
+	}
+	patch, ok := v.(*Patch)
+	if !ok {
+		return nil
+	}
+	return patch
+}
+
+func (s *TestState) store(k string, p *Patch) {
+	s.m.Store(k, p)
 }
 
 // The path should be formatted like this:
