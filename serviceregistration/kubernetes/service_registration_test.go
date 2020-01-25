@@ -12,11 +12,11 @@ import (
 var testVersion = "version 1"
 
 func TestServiceRegistration(t *testing.T) {
-	currentPatches, closeFunc := client.TestServer(t)
+	testState, closeFunc := client.TestServer(t)
 	defer closeFunc()
 
-	if currentPatches.Len() != 0 {
-		t.Fatalf("expected 0 patches but have %d: %+v", currentPatches.Len(), currentPatches)
+	if testState.NumPatches() != 0 {
+		t.Fatalf("expected 0 patches but have %d: %+v", testState.NumPatches(), testState)
 	}
 	shutdownCh := make(chan struct{})
 	config := map[string]string{
@@ -40,78 +40,78 @@ func TestServiceRegistration(t *testing.T) {
 	}
 
 	// Test initial state.
-	if currentPatches.Len() != 5 {
-		t.Fatalf("expected 5 current labels but have %d: %+v", currentPatches.Len(), currentPatches)
+	if testState.NumPatches() != 5 {
+		t.Fatalf("expected 5 current labels but have %d: %+v", testState.NumPatches(), testState)
 	}
-	if currentPatches.Get(pathToLabels+labelVaultVersion).Value != testVersion {
-		t.Fatalf("expected %q but received %q", testVersion, currentPatches.Get(pathToLabels+labelVaultVersion).Value)
+	if testState.Get(pathToLabels+labelVaultVersion).Value != testVersion {
+		t.Fatalf("expected %q but received %q", testVersion, testState.Get(pathToLabels+labelVaultVersion).Value)
 	}
-	if currentPatches.Get(pathToLabels+labelActive).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelActive).Value)
+	if testState.Get(pathToLabels+labelActive).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelActive).Value)
 	}
-	if currentPatches.Get(pathToLabels+labelSealed).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelSealed).Value)
+	if testState.Get(pathToLabels+labelSealed).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelSealed).Value)
 	}
-	if currentPatches.Get(pathToLabels+labelPerfStandby).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelPerfStandby).Value)
+	if testState.Get(pathToLabels+labelPerfStandby).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelPerfStandby).Value)
 	}
-	if currentPatches.Get(pathToLabels+labelInitialized).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelInitialized).Value)
+	if testState.Get(pathToLabels+labelInitialized).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelInitialized).Value)
 	}
 
 	// Test NotifyActiveStateChange.
 	if err := reg.NotifyActiveStateChange(false); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelActive).Value != toString(false) {
-		t.Fatalf("expected %q but received %q", toString(false), currentPatches.Get(pathToLabels+labelActive).Value)
+	if testState.Get(pathToLabels+labelActive).Value != toString(false) {
+		t.Fatalf("expected %q but received %q", toString(false), testState.Get(pathToLabels+labelActive).Value)
 	}
 	if err := reg.NotifyActiveStateChange(true); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelActive).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelActive).Value)
+	if testState.Get(pathToLabels+labelActive).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelActive).Value)
 	}
 
 	// Test NotifySealedStateChange.
 	if err := reg.NotifySealedStateChange(false); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelSealed).Value != toString(false) {
-		t.Fatalf("expected %q but received %q", toString(false), currentPatches.Get(pathToLabels+labelSealed).Value)
+	if testState.Get(pathToLabels+labelSealed).Value != toString(false) {
+		t.Fatalf("expected %q but received %q", toString(false), testState.Get(pathToLabels+labelSealed).Value)
 	}
 	if err := reg.NotifySealedStateChange(true); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelSealed).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelSealed).Value)
+	if testState.Get(pathToLabels+labelSealed).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelSealed).Value)
 	}
 
 	// Test NotifyPerformanceStandbyStateChange.
 	if err := reg.NotifyPerformanceStandbyStateChange(false); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelPerfStandby).Value != toString(false) {
-		t.Fatalf("expected %q but received %q", toString(false), currentPatches.Get(pathToLabels+labelPerfStandby).Value)
+	if testState.Get(pathToLabels+labelPerfStandby).Value != toString(false) {
+		t.Fatalf("expected %q but received %q", toString(false), testState.Get(pathToLabels+labelPerfStandby).Value)
 	}
 	if err := reg.NotifyPerformanceStandbyStateChange(true); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelPerfStandby).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelPerfStandby).Value)
+	if testState.Get(pathToLabels+labelPerfStandby).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelPerfStandby).Value)
 	}
 
 	// Test NotifyInitializedStateChange.
 	if err := reg.NotifyInitializedStateChange(false); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelInitialized).Value != toString(false) {
-		t.Fatalf("expected %q but received %q", toString(false), currentPatches.Get(pathToLabels+labelInitialized).Value)
+	if testState.Get(pathToLabels+labelInitialized).Value != toString(false) {
+		t.Fatalf("expected %q but received %q", toString(false), testState.Get(pathToLabels+labelInitialized).Value)
 	}
 	if err := reg.NotifyInitializedStateChange(true); err != nil {
 		t.Fatal(err)
 	}
-	if currentPatches.Get(pathToLabels+labelInitialized).Value != toString(true) {
-		t.Fatalf("expected %q but received %q", toString(true), currentPatches.Get(pathToLabels+labelInitialized).Value)
+	if testState.Get(pathToLabels+labelInitialized).Value != toString(true) {
+		t.Fatalf("expected %q but received %q", toString(true), testState.Get(pathToLabels+labelInitialized).Value)
 	}
 }

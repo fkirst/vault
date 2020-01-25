@@ -13,41 +13,39 @@ import (
 	"testing"
 )
 
-// TODO maybe move this to a testing package if it won't create a circular dependency
-
 const (
 	TestNamespace = "default"
 	TestPodname   = "shell-demo"
 )
 
-type CurrentPatches struct {
+type TestState struct {
 	m *sync.Map
 }
 
-func (c *CurrentPatches) Len() int {
+func (s *TestState) NumPatches() int {
 	l := 0
 	f := func(key, value interface{}) bool {
 		l++
 		return true
 	}
-	c.m.Range(f)
+	s.m.Range(f)
 	return l
 }
 
-func (c *CurrentPatches) Get(key string) *Patch {
-	v, ok := c.m.Load(key)
+func (s *TestState) Get(key string) *Patch {
+	v, ok := s.m.Load(key)
 	if !ok {
 		return nil
 	}
-	p, ok := v.(*Patch)
+	patch, ok := v.(*Patch)
 	if !ok {
 		return nil
 	}
-	return p
+	return patch
 }
 
-func (c *CurrentPatches) store(k string, p *Patch) {
-	c.m.Store(k, p)
+func (s *TestState) store(k string, p *Patch) {
+	s.m.Store(k, p)
 }
 
 // TestServer returns an http test server that can be used to test
@@ -55,9 +53,9 @@ func (c *CurrentPatches) store(k string, p *Patch) {
 // so the caller can check current state. Calling the closeFunc
 // at the end closes the test server. Responses are provided using
 // real responses that have been captured from the Kube API.
-// currentPatches is a map[string]*Patch.
-func TestServer(t *testing.T) (currentPatches *CurrentPatches, closeFunc func()) {
-	currentPatches = &CurrentPatches{m: &sync.Map{}}
+// testState is a map[string]*Patch.
+func TestServer(t *testing.T) (testState *TestState, closeFunc func()) {
+	testState = &TestState{m: &sync.Map{}}
 
 	// We're going to have multiple close funcs to call.
 	var closers []func()
@@ -134,7 +132,7 @@ func TestServer(t *testing.T) (currentPatches *CurrentPatches, closeFunc func())
 			for _, patch := range patches {
 				patchMap := patch.(map[string]interface{})
 				p := patchMap["path"].(string)
-				currentPatches.store(p, &Patch{
+				testState.store(p, &Patch{
 					Operation: Parse(patchMap["op"].(string)),
 					Path:      p,
 					Value:     patchMap["value"],
@@ -169,7 +167,7 @@ func TestServer(t *testing.T) (currentPatches *CurrentPatches, closeFunc func())
 		closeFunc()
 		t.Fatal(err)
 	}
-	return currentPatches, closeFunc
+	return testState, closeFunc
 }
 
 // The path should be formatted like this:

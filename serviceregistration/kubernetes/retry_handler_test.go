@@ -14,7 +14,7 @@ func TestRetryHandlerSimple(t *testing.T) {
 		t.Skip("skipping because this test takes 10-15 seconds")
 	}
 
-	currentPatches, closeFunc := client.TestServer(t)
+	testState, closeFunc := client.TestServer(t)
 	defer closeFunc()
 
 	logger := hclog.NewNullLogger()
@@ -40,7 +40,7 @@ func TestRetryHandlerSimple(t *testing.T) {
 	}
 	go r.Run(shutdownCh, wait)
 
-	if currentPatches.Len() != 0 {
+	if testState.NumPatches() != 0 {
 		t.Fatal("expected no current patches")
 	}
 	if err := r.Add(testPatch); err != nil {
@@ -48,7 +48,7 @@ func TestRetryHandlerSimple(t *testing.T) {
 	}
 	// Wait ample until the next try should have occurred.
 	<-time.NewTimer(retryFreq * 2).C
-	if currentPatches.Len() != 1 {
+	if testState.NumPatches() != 1 {
 		t.Fatal("expected 1 patch")
 	}
 }
