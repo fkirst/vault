@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	sr "github.com/hashicorp/vault/serviceregistration"
@@ -14,16 +13,13 @@ import (
 const (
 	// Labels are placed in a pod's metadata.
 	labelVaultVersion = "vault-version"
-	labelActive       = "vault-ha-active"
-	labelSealed       = "vault-ha-sealed"
-	labelPerfStandby  = "vault-ha-perf-standby"
-	labelInitialized  = "vault-ha-initialized"
+	labelActive       = "vault-active"
+	labelSealed       = "vault-sealed"
+	labelPerfStandby  = "vault-perf-standby"
+	labelInitialized  = "vault-initialized"
 
 	// This is the path to where these labels are applied.
 	pathToLabels = "/metadata/labels/"
-
-	// How often to retry sending a state update if it fails.
-	retryFreq = 5 * time.Second
 )
 
 func NewServiceRegistration(config map[string]string, logger hclog.Logger, state sr.State, _ string) (sr.ServiceRegistration, error) {
@@ -44,7 +40,7 @@ func NewServiceRegistration(config map[string]string, logger hclog.Logger, state
 			logger:         logger,
 			namespace:      namespace,
 			podName:        podName,
-			patchesToRetry: make([]*client.Patch, 0, 4),
+			patchesToRetry: make([]*client.Patch, 0),
 		},
 	}, nil
 }

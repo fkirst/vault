@@ -248,9 +248,6 @@ func (c *Client) attemptRequest(client *http.Client, req *http.Request, ptrToRet
 		return false, ErrNotFound
 	case 500, 502, 503, 504:
 		// Could be transient.
-		// Continue to try again, but return the error too in case the caller would rather read it out.
-		return true, fmt.Errorf("bad status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
-	default:
 		return false, fmt.Errorf("unexpected status code: %s", sanitizedDebuggingInfo(req, reqBody, resp))
 	}
 

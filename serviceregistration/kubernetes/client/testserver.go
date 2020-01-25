@@ -9,21 +9,55 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"testing"
 )
+
+// TODO maybe move this to a testing package if it won't create a circular dependency
 
 const (
 	TestNamespace = "default"
 	TestPodname   = "shell-demo"
 )
 
+type CurrentPatches struct {
+	m *sync.Map
+}
+
+func (c *CurrentPatches) Len() int {
+	l := 0
+	f := func(key, value interface{}) bool {
+		l++
+		return true
+	}
+	c.m.Range(f)
+	return l
+}
+
+func (c *CurrentPatches) Get(key string) *Patch {
+	v, ok := c.m.Load(key)
+	if !ok {
+		return nil
+	}
+	p, ok := v.(*Patch)
+	if !ok {
+		return nil
+	}
+	return p
+}
+
+func (c *CurrentPatches) store(k string, p *Patch) {
+	c.m.Store(k, p)
+}
+
 // TestServer returns an http test server that can be used to test
 // Kubernetes client code. It returns its current patches as a map
 // so the caller can check current state. Calling the closeFunc
 // at the end closes the test server. Responses are provided using
 // real responses that have been captured from the Kube API.
-func TestServer(t *testing.T) (currentPatches map[string]*Patch, closeFunc func()) {
-	currentPatches = make(map[string]*Patch)
+// currentPatches is a map[string]*Patch.
+func TestServer(t *testing.T) (currentPatches *CurrentPatches, closeFunc func()) {
+	currentPatches = &CurrentPatches{m: &sync.Map{}}
 
 	// We're going to have multiple close funcs to call.
 	var closers []func()
@@ -100,11 +134,11 @@ func TestServer(t *testing.T) (currentPatches map[string]*Patch, closeFunc func(
 			for _, patch := range patches {
 				patchMap := patch.(map[string]interface{})
 				p := patchMap["path"].(string)
-				currentPatches[p] = &Patch{
+				currentPatches.store(p, &Patch{
 					Operation: Parse(patchMap["op"].(string)),
 					Path:      p,
 					Value:     patchMap["value"],
-				}
+				})
 			}
 			w.WriteHeader(200)
 			w.Write([]byte(updatePodTagsResponse))

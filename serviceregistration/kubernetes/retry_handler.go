@@ -10,21 +10,22 @@ import (
 	"github.com/hashicorp/vault/serviceregistration/kubernetes/client"
 )
 
+// How often to retry sending a state update if it fails.
+var retryFreq = 5 * time.Second
+
+// retryHandler executes retries.
+// It is thread-safe.
 type retryHandler struct {
+	// These don't need a mutex because they're never mutated.
 	logger             hclog.Logger
 	namespace, podName string
 	client             *client.Client
 
-	// patchesToRetry can only hold up to 4 patches because there are only 4
-	// notifications, maximum, that can be out of date at once.
-	patchesToRetry []*client.Patch
-
-	// We need a mutex for this because the code mutates it in multiple
-	// goroutines.
+	// This gets mutated on multiple threads.
+	patchesToRetry     []*client.Patch
 	patchesToRetryLock sync.Mutex
 }
 
-// TODO tests
 // Run runs at an interval, checking if anything has failed and if so,
 // attempting to send them again.
 func (r *retryHandler) Run(shutdownCh <-chan struct{}, wait *sync.WaitGroup) {
@@ -43,7 +44,8 @@ func (r *retryHandler) Run(shutdownCh <-chan struct{}, wait *sync.WaitGroup) {
 	}
 }
 
-// TODO tests
+// Add adds a patch to be retried until it's either completed without
+// error, or no longer needed.
 func (r *retryHandler) Add(patch *client.Patch) error {
 	r.patchesToRetryLock.Lock()
 	defer r.patchesToRetryLock.Unlock()
@@ -54,11 +56,11 @@ func (r *retryHandler) Add(patch *client.Patch) error {
 	//     but this new patch tells us "active = false" again.
 	// - Otherwise, this is a new, unique patch, so add this patch to retries.
 	for i := 0; i < len(r.patchesToRetry); i++ {
-		patchToRetry := r.patchesToRetry[i]
-		if patch.Operation != patchToRetry.Operation {
+		prevPatch := r.patchesToRetry[i]
+		if patch.Path != prevPatch.Path {
 			continue
 		}
-		if patch.Path != patchToRetry.Path {
+		if patch.Operation != prevPatch.Operation {
 			continue
 		}
 		patchValStr, ok := patch.Value.(string)
@@ -71,20 +73,20 @@ func (r *retryHandler) Add(patch *client.Patch) error {
 		}
 		// This was already verified to not be a bool string
 		// when it was added to the slice.
-		patchToRetryVal, _ := strconv.ParseBool(patchToRetry.Value.(string))
-		if patchVal == patchToRetryVal {
+		prevPatchVal, _ := strconv.ParseBool(prevPatch.Value.(string))
+		if patchVal == prevPatchVal {
 			// We don't need to do anything because it already exists.
 			return nil
 		} else {
 			// We need to delete its opposite from the slice.
 			r.patchesToRetry = append(r.patchesToRetry[:i], r.patchesToRetry[i+1:]...)
+			return nil
 		}
 	}
-	r.patchesToRetry[len(r.patchesToRetry)+1] = patch
+	r.patchesToRetry = append(r.patchesToRetry, patch)
 	return nil
 }
 
-// TODO tests - and break this off into being a separate handler again, it's much easier to understand that way
 func (r *retryHandler) retry() {
 	r.patchesToRetryLock.Lock()
 	defer r.patchesToRetryLock.Unlock()
@@ -100,5 +102,5 @@ func (r *retryHandler) retry() {
 		}
 		return
 	}
-	r.patchesToRetry = make([]*client.Patch, 0, 4)
+	r.patchesToRetry = make([]*client.Patch, 0)
 }

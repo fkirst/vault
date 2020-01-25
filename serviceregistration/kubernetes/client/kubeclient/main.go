@@ -42,7 +42,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	c, err := client.New(hclog.Default())
+	c, err := client.New(hclog.Default(), make(chan struct{}))
 	if err != nil {
 		panic(err)
 	}
