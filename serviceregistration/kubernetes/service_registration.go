@@ -11,6 +11,10 @@ import (
 )
 
 // TODO this is almost ready to PR. Test it IRL in minikube, and do any last making it prettier.
+// TODO move test fixtures into files since client won't be reused.
+// TODO is it possible to put the testserver.go stuff into a module called testing?
+// TODO should I move the client into the kubernetes package?
+// TODO break into smaller PRs
 
 const (
 	// Labels are placed in a pod's metadata.
