@@ -1,14 +1,26 @@
 package client
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
+	kubetest "github.com/hashicorp/vault/serviceregistration/kubernetes/testing"
 )
 
 func TestClient(t *testing.T) {
-	testState, closeFunc := TestServer(t)
+	testState, testConf, closeFunc := kubetest.Server(t)
 	defer closeFunc()
+
+	Scheme = testConf.ClientScheme
+	TokenFile = testConf.PathToTokenFile
+	RootCAFile = testConf.PathToRootCAFile
+	if err := os.Setenv(EnvVarKubernetesServiceHost, testConf.ServiceHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv(EnvVarKubernetesServicePort, testConf.ServicePort); err != nil {
+		t.Fatal(err)
+	}
 
 	client, err := New(hclog.Default(), make(chan struct{}))
 	if err != nil {
@@ -26,11 +38,11 @@ func TestClient(t *testing.T) {
 
 type env struct {
 	client    *Client
-	testState *TestState
+	testState *kubetest.State
 }
 
 func (e *env) TestGetPod(t *testing.T) {
-	pod, err := e.client.GetPod(TestNamespace, TestPodname)
+	pod, err := e.client.GetPod(kubetest.ExpectedNamespace, kubetest.ExpectedPodName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +52,7 @@ func (e *env) TestGetPod(t *testing.T) {
 }
 
 func (e *env) TestGetPodNotFound(t *testing.T) {
-	_, err := e.client.GetPod(TestNamespace, "no-exist")
+	_, err := e.client.GetPod(kubetest.ExpectedNamespace, "no-exist")
 	if err == nil {
 		t.Fatal("expected error because pod is unfound")
 	}
@@ -50,7 +62,7 @@ func (e *env) TestGetPodNotFound(t *testing.T) {
 }
 
 func (e *env) TestUpdatePodTags(t *testing.T) {
-	if err := e.client.PatchPod(TestNamespace, TestPodname, &Patch{
+	if err := e.client.PatchPod(kubetest.ExpectedNamespace, kubetest.ExpectedPodName, &Patch{
 		Operation: Add,
 		Path:      "/metadata/labels/fizz",
 		Value:     "buzz",
@@ -60,13 +72,13 @@ func (e *env) TestUpdatePodTags(t *testing.T) {
 	if e.testState.NumPatches() != 1 {
 		t.Fatalf("expected 1 label but received %+v", e.testState)
 	}
-	if e.testState.Get("/metadata/labels/fizz").Value != "buzz" {
+	if e.testState.Get("/metadata/labels/fizz")["value"] != "buzz" {
 		t.Fatalf("expected buzz but received %q", e.testState.Get("fizz"))
 	}
 }
 
 func (e *env) TestUpdatePodTagsNotFound(t *testing.T) {
-	err := e.client.PatchPod(TestNamespace, "no-exist", &Patch{
+	err := e.client.PatchPod(kubetest.ExpectedNamespace, "no-exist", &Patch{
 		Operation: Add,
 		Path:      "/metadata/labels/fizz",
 		Value:     "buzz",

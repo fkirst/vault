@@ -26,9 +26,9 @@ const (
 var (
 	// These are presented as variables so they can be updated
 	// to point at test fixtures if needed.
-	scheme     = "https://"
-	tokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	rootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	Scheme     = "https://"
+	TokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	RootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // inClusterConfig returns a config object which uses the service account
@@ -41,20 +41,20 @@ func inClusterConfig() (*Config, error) {
 		return nil, ErrNotInCluster
 	}
 
-	token, err := ioutil.ReadFile(tokenFile)
+	token, err := ioutil.ReadFile(TokenFile)
 	if err != nil {
 		return nil, err
 	}
 
-	pool, err := certutil.NewCertPool(rootCAFile)
+	pool, err := certutil.NewCertPool(RootCAFile)
 	if err != nil {
 		return nil, err
 	}
 	return &Config{
-		Host:            scheme + net.JoinHostPort(host, port),
+		Host:            Scheme + net.JoinHostPort(host, port),
 		CACertPool:      pool,
 		BearerToken:     string(token),
-		BearerTokenFile: tokenFile,
+		BearerTokenFile: TokenFile,
 	}, nil
 }
 

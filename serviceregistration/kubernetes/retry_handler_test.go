@@ -1,12 +1,14 @@
 package kubernetes
 
 import (
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/serviceregistration/kubernetes/client"
+	kubetest "github.com/hashicorp/vault/serviceregistration/kubernetes/testing"
 )
 
 func TestRetryHandlerSimple(t *testing.T) {
@@ -14,8 +16,18 @@ func TestRetryHandlerSimple(t *testing.T) {
 		t.Skip("skipping because this test takes 10-15 seconds")
 	}
 
-	testState, closeFunc := client.TestServer(t)
+	testState, testConf, closeFunc := kubetest.Server(t)
 	defer closeFunc()
+
+	client.Scheme = testConf.ClientScheme
+	client.TokenFile = testConf.PathToTokenFile
+	client.RootCAFile = testConf.PathToRootCAFile
+	if err := os.Setenv(client.EnvVarKubernetesServiceHost, testConf.ServiceHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv(client.EnvVarKubernetesServicePort, testConf.ServicePort); err != nil {
+		t.Fatal(err)
+	}
 
 	logger := hclog.NewNullLogger()
 	shutdownCh := make(chan struct{})
@@ -33,8 +45,8 @@ func TestRetryHandlerSimple(t *testing.T) {
 
 	r := &retryHandler{
 		logger:         logger,
-		namespace:      client.TestNamespace,
-		podName:        client.TestPodname,
+		namespace:      kubetest.ExpectedNamespace,
+		podName:        kubetest.ExpectedPodName,
 		client:         c,
 		patchesToRetry: make([]*client.Patch, 0),
 	}
@@ -167,8 +179,18 @@ func TestRetryHandlerAdd(t *testing.T) {
 
 // This is meant to be run with the -race flag on.
 func TestRetryHandlerRacesAndDeadlocks(t *testing.T) {
-	_, closeFunc := client.TestServer(t)
+	_, testConf, closeFunc := kubetest.Server(t)
 	defer closeFunc()
+
+	client.Scheme = testConf.ClientScheme
+	client.TokenFile = testConf.PathToTokenFile
+	client.RootCAFile = testConf.PathToRootCAFile
+	if err := os.Setenv(client.EnvVarKubernetesServiceHost, testConf.ServiceHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv(client.EnvVarKubernetesServicePort, testConf.ServicePort); err != nil {
+		t.Fatal(err)
+	}
 
 	logger := hclog.NewNullLogger()
 	shutdownCh := make(chan struct{})
@@ -186,8 +208,8 @@ func TestRetryHandlerRacesAndDeadlocks(t *testing.T) {
 
 	r := &retryHandler{
 		logger:         logger,
-		namespace:      client.TestNamespace,
-		podName:        client.TestPodname,
+		namespace:      kubetest.ExpectedNamespace,
+		podName:        kubetest.ExpectedPodName,
 		client:         c,
 		patchesToRetry: make([]*client.Patch, 0),
 	}
