@@ -25,7 +25,8 @@ const (
 
 var (
 	// These are presented as variables so they can be updated
-	// to point at test fixtures if needed.
+	// to point at test fixtures if needed. They aren't passed
+	// into inClusterConfig to avoid dependency injection.
 	Scheme     = "https://"
 	TokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	RootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"

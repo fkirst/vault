@@ -31,6 +31,19 @@ var pathToFiles = func() string {
 	return pathParts[0] + "vault/serviceregistration/kubernetes/testing/"
 }()
 
+// Conf returns the info needed to configure the client to point at
+// the test server. This must be done by the caller to avoid an import
+// cycle between the client and the testserver. Example usage:
+//
+//		client.Scheme = testConf.ClientScheme
+//		client.TokenFile = testConf.PathToTokenFile
+//		client.RootCAFile = testConf.PathToRootCAFile
+//		if err := os.Setenv(client.EnvVarKubernetesServiceHost, testConf.ServiceHost); err != nil {
+//			t.Fatal(err)
+//		}
+//		if err := os.Setenv(client.EnvVarKubernetesServicePort, testConf.ServicePort); err != nil {
+//			t.Fatal(err)
+//		}
 type Conf struct {
 	ClientScheme, PathToTokenFile, PathToRootCAFile, ServiceHost, ServicePort string
 }
@@ -40,7 +53,7 @@ type Conf struct {
 // so the caller can check current state. Calling the closeFunc
 // at the end closes the test server. Responses are provided using
 // real responses that have been captured from the Kube API.
-// testState is a map[string]*Patch.
+// testState is a map[string]map[string]interface{}.
 func Server(t *testing.T) (testState *State, testConf *Conf, closeFunc func()) {
 	testState = &State{m: &sync.Map{}}
 	testConf = &Conf{

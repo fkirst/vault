@@ -26,6 +26,8 @@ var (
 	ErrNotInCluster   = errors.New("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 )
 
+// New instantiates a Client. The stopCh is used for exiting retry loops
+// when closed.
 func New(logger hclog.Logger, stopCh <-chan struct{}) (*Client, error) {
 	config, err := inClusterConfig()
 	if err != nil {
@@ -38,14 +40,14 @@ func New(logger hclog.Logger, stopCh <-chan struct{}) (*Client, error) {
 	}, nil
 }
 
+// Client is a minimal Kubernetes client.
 type Client struct {
 	logger hclog.Logger
 	config *Config
 	stopCh <-chan struct{}
 }
 
-// GetPod merely verifies a pod's existence, returning an
-// error if the pod doesn't exist.
+// GetPod gets a pod from the Kubernetes API.
 func (c *Client) GetPod(namespace, podName string) (*Pod, error) {
 	endpoint := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, podName)
 	method := http.MethodGet
@@ -69,9 +71,8 @@ func (c *Client) GetPod(namespace, podName string) (*Pod, error) {
 	return pod, nil
 }
 
-// PatchPod updates the pod's tags to the given ones,
-// overwriting previous values for a given tag key. It does so
-// non-destructively, or in other words, without tearing down
+// PatchPod updates the pod's tags to the given ones.
+// It does so non-destructively, or in other words, without tearing down
 // the pod.
 func (c *Client) PatchPod(namespace, podName string, patches ...*Patch) error {
 	endpoint := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", namespace, podName)
@@ -112,6 +113,7 @@ func (c *Client) PatchPod(namespace, podName string, patches ...*Patch) error {
 	return c.do(req, nil)
 }
 
+// do executes the given request, retrying if necessary.
 func (c *Client) do(req *http.Request, ptrToReturnObj interface{}) error {
 	// Finish setting up a valid request.
 	req.Header.Set("Authorization", "Bearer "+c.config.BearerToken)
@@ -123,6 +125,8 @@ func (c *Client) do(req *http.Request, ptrToReturnObj interface{}) error {
 		},
 	}
 
+	// Execute and retry the request. This exponential backoff comes
+	// with jitter already rolled in.
 	var lastErr error
 	b := backoff.NewExponentialBackOff()
 	for i := 0; i < maxRetries; i++ {
@@ -145,8 +149,12 @@ func (c *Client) do(req *http.Request, ptrToReturnObj interface{}) error {
 	return lastErr
 }
 
+// attemptRequest tries one single request. It's in its own function so each
+// response body can be closed before returning, which would read awkwardly if
+// executed in a loop.
 func (c *Client) attemptRequest(client *http.Client, req *http.Request, ptrToReturnObj interface{}) (shouldRetry bool, err error) {
 	// Preserve the original request body so it can be viewed for debugging if needed.
+	// Reading it empties it, so we need to re-add it afterwards.
 	var reqBody []byte
 	if req.Body != nil {
 		reqBody, _ = ioutil.ReadAll(req.Body)
